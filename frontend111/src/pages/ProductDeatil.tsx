@@ -113,7 +113,7 @@
 // export default ProductDetail;
 import { useParams } from 'react-router-dom';
 import { useBlog } from '../context/BlogContext';
-import Loading from '../pages/Loading';
+import Loading from './Loading';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useState } from 'react';
 import axios from 'axios';

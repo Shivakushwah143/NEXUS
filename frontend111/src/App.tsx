@@ -1,4 +1,70 @@
 
+// // // // import { Route, Routes } from 'react-router-dom'
+// // // // import Login from './components/Login'
+// // // // import Signup from './components/Signup'
+// // // // import Navbar from './components/Navbar'
+// // // // import AdminSignUp from './pages/AdminSignUp'
+// // // // import AdminSignin from './pages/AdminSignin'
+// // // // import CreateProduct from './pages/CreateProduct'
+// // // // import Home from './pages/Home'
+// // // // import FilterPage from './pages/FilterPage'
+// // // // import ProductDeatil from './pages/ProductDeatil'
+// // // // import MyProducts from './pages/MyProducts'
+// // // // import UpdateProfileForm from './components/ProfileUpdate'
+// // // // import Dashboard from './pages/Dashbord'
+
+
+// // // // const App = () => {
+// // // //     return (
+// // // //         <>
+// // // //             <Navbar />
+// // // //             <Routes>
+// // // //                 <Route path="/" element={<Home />} />
+// // // //                 <Route path="/signin" element={<Login />} />
+// // // //                 <Route path="/signup" element={<Signup />} />
+// // // //                 <Route path="/AdminSignUp" element={<AdminSignUp />} />
+// // // //                 <Route path="/AdminSignIn" element={<AdminSignin />} />
+// // // //                 <Route path="/CreateProduct" element={<CreateProduct />} />
+// // // //                 <Route path="/dashboard" element={<Dashboard />} />
+// // // //                 <Route path="/FilterPage" element={<FilterPage />} />
+// // // //                 <Route path="/MyProducts" element={<MyProducts />} />
+// // // //                 <Route path="/UpdateProfileForm" element={<UpdateProfileForm />} />
+// // // //                 <Route path="/products/:id" element={<ProductDeatil />} />
+// // // //             </Routes>
+// // // //         </>
+// // // //     );
+// // // // };
+
+// // // // export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // App.tsx - Complete Portfolio-Ready E-commerce Platform
 import React, { useState, useEffect, useRef } from 'react';
@@ -16,9 +82,11 @@ import {
     Share2, MessageCircle, Phone, MapPin,
     ExternalLink, Github, Linkedin, Instagram,
     Facebook, Twitter, Mail, Globe as GlobeIcon,
-    Lock, 
-     DollarSign, ShieldCheck, Headphones, 
- 
+    Lock, Unlock, RefreshCw, Download, HelpCircle,
+    TrendingUp, DollarSign, PieChart, Database,
+    Server, Cpu, Cloud, ShieldCheck, Wifi,
+    Smartphone, Monitor, Headphones, Camera,
+    Watch, Printer, Gamepad, Keyboard, Mouse,
     Mic,
     Minimize
 } from 'lucide-react';
