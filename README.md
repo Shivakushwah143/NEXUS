@@ -1,5 +1,12 @@
 Nexus Commerce Platform
 A complete, production-ready full-stack e-commerce platform built with modern web technologies.
+<img width="1901" height="865" alt="image" src="https://github.com/user-attachments/assets/bb050ac3-14d0-40ed-87b9-62776058dc9f" />
+
+<img width="1832" height="847" alt="image" src="https://github.com/user-attachments/assets/21bc04e4-b4ae-4b3e-8b46-dc2ceda15cbe" />
+
+<img width="1695" height="800" alt="image" src="https://github.com/user-attachments/assets/fa9894ae-675f-48e7-9e24-32f5932f299f" />
+
+
 
 🚀 Quick Start
 Prerequisites
