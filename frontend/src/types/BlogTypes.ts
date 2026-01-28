@@ -19,5 +19,6 @@
 export const defaultBlogContext: BlogContextType = {
   products: [],
   loading: false,
+  setProducts: () => {} 
  
 };
