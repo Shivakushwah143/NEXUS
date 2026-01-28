@@ -1,16 +1,18 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "strict": false,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
     "module": "ESNext",
-    "jsx": "react-jsx",               // 👈 Required for React 17+
-    "rootDir": "src",                 // 👈 Where your source files are
-    "outDir": "dist",                 // 👈 Where your compiled JS goes
+    "target": "ES2020",
+    "allowJs": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": false,
-    "skipLibCheck": true
+    "resolveJsonModule": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

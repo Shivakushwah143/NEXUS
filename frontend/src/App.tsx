@@ -101,17 +101,12 @@ const api = axios.create({
 
 // Request interceptor to add token
 api.interceptors.request.use(
-    (config ) => {
-        try {
-            const token = localStorage.getItem('token');
-            if (token && config.headers) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-            return config;
-        } catch (error) {
-            console.error('Request interceptor error:', error);
-            return Promise.reject(error);
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token && config.headers) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
+        return config;
     },
     (error) => {
         console.error('Request error:', error);
