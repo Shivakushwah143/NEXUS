@@ -14,11 +14,12 @@ import Stripe from "stripe";
 import { generateOTP, isOTPExpired } from "./utils/otp";
 import { sendOTPEmail } from "./utils/mailer";
 
+
 const app = Express();
 app.use(Express.json());
 dotenv.config();
 
-const port = 5000;
+const port =  process.env.PORT || 5000;
 const SECRET = process.env.SECRET || "fallback_secret";
 
 // Initialize Stripe
@@ -539,7 +540,7 @@ app.post("/api/v1/auth/verify-signup", async (req: Request, res: Response) => {
 
 // Database connection and server start
 mongoose
-  .connect("mongodb+srv://shivakushwah144:SHan2004@cluster0.gkj9xcy.mongodb.net/test?retryWrites=true&w=majority", { dbName: "courses" })
+  .connect(   process.env.MONGODB_URI || "mongodb+srv://shivakushwah144:SHan2004@cluster0.gkj9xcy.mongodb.net/test?retryWrites=true&w=majority", { dbName: "courses" })
   .then(() => {
     console.log("Database connected");
     app.listen(port, () => {
