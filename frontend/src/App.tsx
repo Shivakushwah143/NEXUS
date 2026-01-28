@@ -7,19 +7,16 @@ import axios from 'axios';
 import {
     ShoppingBag, User, Search, Menu, X,
     Star, ShoppingCart, LogOut, Package,
-    Plus, Edit, Trash2, Upload, Heart,
-    Eye, EyeOff, ChevronRight, ChevronLeft,
-    Check, CreditCard, Shield, Truck, Zap,
-    Globe, Thermometer, Battery, Droplets,
-    Users, Award, Calendar, BarChart, Settings,
-    Home, FileText, Bell, Filter, Grid, List,
-    Share2, MessageCircle, Phone, MapPin,
-    ExternalLink, Github, Linkedin, Instagram,
-    Facebook, Twitter, Mail, Globe as GlobeIcon,
+    Plus, Edit, Trash2,
+    Eye, EyeOff, ChevronRight,
+    Check,  Truck,
+    Globe, 
+    Users, Award, Calendar, Phone, MapPin,
+     Github, Linkedin, Instagram,
+     Twitter, Mail, Globe as 
     Lock, 
      DollarSign, ShieldCheck, Headphones, 
  
-    Mic,
     Minimize
 } from 'lucide-react';
 
