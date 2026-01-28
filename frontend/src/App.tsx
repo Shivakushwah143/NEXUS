@@ -13,7 +13,7 @@ import {
     Globe, 
     Users, Award, Calendar, Phone, MapPin,
      Github, Linkedin, Instagram,
-     Twitter, Mail, Globe as 
+     Twitter, Mail,
     Lock, 
      DollarSign, ShieldCheck, Headphones, 
  
@@ -162,7 +162,6 @@ const PortfolioECommerce: React.FC = () => {
     const [authMode, setAuthMode] = useState<'login' | 'register' | 'otp'>('login');
     const [showPassword, setShowPassword] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>('');
     const [success, setSuccess] = useState<string>('');
