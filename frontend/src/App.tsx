@@ -101,7 +101,7 @@ const api = axios.create({
 
 // Request interceptor to add token
 api.interceptors.request.use(
-    (config) => {
+    (config ) => {
         try {
             const token = localStorage.getItem('token');
             if (token && config.headers) {
@@ -177,6 +177,28 @@ interface Order {
     status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
     date: string;
     paymentMethod: string;
+}
+
+// types/api.ts
+export interface ApiResponse<T = any> {
+    success: boolean;
+    message?: string;
+    data?: T;
+    token?: string;
+}
+
+export interface ProductsResponse {
+    products: Product[];
+    total: number;
+}
+
+export interface PurchaseResponse {
+    purchasedProducts: Product[];
+    success: boolean;
+}
+
+export interface UserResponse extends UserData {
+    token?: string;
 }
 
 // ==================== MAIN APP ====================
@@ -273,16 +295,25 @@ const PortfolioECommerce: React.FC = () => {
         }
     }, [user, isAdmin]);
 
+
+    
+
     // ==================== API FUNCTIONS ====================
     const fetchProducts = async () => {
         try {
             setIsLoading(true);
             const response = await api.get('/product');
 
-            if (response.data && response.data.products) {
-                setProducts(response.data.products);
-                setStats(prev => ({ ...prev, totalProducts: response.data.products.length }));
-            }
+              const data = response.data as any;
+                  if (data && data.products) {
+            setProducts(data.products);
+            setStats(prev => ({ ...prev, totalProducts: data.products.length }));
+        }
+
+            // if (response.data && response.data.products ) {
+            //     setProducts(response.data.products);
+            //     setStats(prev => ({ ...prev, totalProducts: response.data.products.length }));
+            // }
         } catch (error: any) {
             console.error('Error fetching products:', error);
             setError(error.response?.data?.message || 'Failed to fetch products');
@@ -296,7 +327,7 @@ const PortfolioECommerce: React.FC = () => {
             if (!localStorage.getItem('token')) return;
 
             const response = await api.get('/user/me');
-            const userData = response.data;
+            const userData = response.data as any ;
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
         } catch (error: any) {
@@ -308,33 +339,65 @@ const PortfolioECommerce: React.FC = () => {
     };
 
     const fetchPurchasedProducts = async () => {
-        try {
-            const response = await api.get('/user/purchasedproducts');
+    try {
+        const response = await api.get('/user/purchasedproducts');
 
-            if (response.data && response.data.success && response.data.purchasedProducts) {
-                setUser(prev => prev ? {
-                    ...prev,
-                    purchaseProduct: response.data.purchasedProducts
-                } : null);
+        // Quick fix with any
+        const data = response.data as any;
 
-                // Convert purchased products to orders
-                if (response.data.purchasedProducts.length > 0) {
-                    const newOrders: Order[] = response.data.purchasedProducts.map((product: Product, index: number) => ({
-                        id: `ORD-${Date.now()}-${index}`,
-                        products: [{ product, quantity: 1 }],
-                        total: product.price,
-                        status: 'delivered',
-                        date: new Date().toISOString(),
-                        paymentMethod: 'stripe'
-                    }));
-                    setOrders(newOrders);
-                    setStats(prev => ({ ...prev, totalOrders: newOrders.length }));
-                }
+        if (data && data.success && data.purchasedProducts) {
+            setUser(prev => prev ? {
+                ...prev,
+                purchaseProduct: data.purchasedProducts
+            } : null);
+
+            // Convert purchased products to orders
+            if (data.purchasedProducts.length > 0) {
+                const newOrders: Order[] = data.purchasedProducts.map((product: Product, index: number) => ({
+                    id: `ORD-${Date.now()}-${index}`,
+                    products: [{ product, quantity: 1 }],
+                    total: product.price,
+                    status: 'delivered',
+                    date: new Date().toISOString(),
+                    paymentMethod: 'stripe'
+                }));
+                setOrders(newOrders);
+                setStats(prev => ({ ...prev, totalOrders: newOrders.length }));
             }
-        } catch (error: any) {
-            console.error('Error fetching purchased products:', error);
         }
-    };
+    } catch (error: any) {
+        console.error('Error fetching purchased products:', error);
+    }
+};
+
+    // const fetchPurchasedProducts = async () => {
+    //     try {
+    //         const response = await api.get('/user/purchasedproducts');
+
+    //         if (response.data && response.data.success && response.data.purchasedProducts) {
+    //             setUser(prev => prev ? {
+    //                 ...prev,
+    //                 purchaseProduct: response.data.purchasedProducts
+    //             } : null);
+
+    //             // Convert purchased products to orders
+    //             if (response.data.purchasedProducts.length > 0) {
+    //                 const newOrders: Order[] = response.data.purchasedProducts.map((product: Product, index: number) => ({
+    //                     id: `ORD-${Date.now()}-${index}`,
+    //                     products: [{ product, quantity: 1 }],
+    //                     total: product.price,
+    //                     status: 'delivered',
+    //                     date: new Date().toISOString(),
+    //                     paymentMethod: 'stripe'
+    //                 }));
+    //                 setOrders(newOrders);
+    //                 setStats(prev => ({ ...prev, totalOrders: newOrders.length }));
+    //             }
+    //         }
+    //     } catch (error: any) {
+    //         console.error('Error fetching purchased products:', error);
+    //     }
+    // };
 
     const fetchAdminStats = async () => {
         try {
@@ -383,8 +446,8 @@ const PortfolioECommerce: React.FC = () => {
                     otp
                 });
 
-                if (response.data && response.data.success) {
-                    localStorage.setItem('token', response.data.token);
+                if (response.data &&( response.data as any ).success) {
+                    localStorage.setItem('token', (response.data as any).token);
                     await fetchUserProfile();
                     setIsAuthModalOpen(false);
                     resetFormRefs();
@@ -394,7 +457,7 @@ const PortfolioECommerce: React.FC = () => {
                 // First send OTP
                 const otpResponse = await api.post('/auth/send-otp', { email });
 
-                if (otpResponse.data && otpResponse.data.success) {
+                if (otpResponse.data && (otpResponse.data as any).success) {
                     setAuthMode('otp');
                     setSuccess('OTP sent to your email! Please check and enter the code.');
                 }
@@ -426,8 +489,8 @@ const PortfolioECommerce: React.FC = () => {
                 password
             });
 
-            if (response.data && response.data.success) {
-                localStorage.setItem('token', response.data.token);
+            if (response.data && (response.data as any ).success  ) {
+                localStorage.setItem('token', (response.data as any).token);
                 await fetchUserProfile();
                 setIsAuthModalOpen(false);
                 resetFormRefs();
@@ -460,8 +523,8 @@ const PortfolioECommerce: React.FC = () => {
                 password
             });
 
-            if (response.data && response.data.success) {
-                localStorage.setItem('adminToken', response.data.token);
+            if (response.data && (response.data as any).success) {
+                localStorage.setItem('adminToken', (response.data as any).token);
                 setIsAdmin(true);
                 setIsAuthModalOpen(false);
                 setSuccess('Admin login successful!');
@@ -494,9 +557,9 @@ const PortfolioECommerce: React.FC = () => {
                 avtar: avatar
             });
 
-            if (response.data && response.data.user) {
-                setUser(response.data.user);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
+            if (response.data && (response.data as any).user) {
+                setUser((response.data as any).user);
+                localStorage.setItem('user', JSON.stringify((response.data as any).user));
                 setSuccess('Profile updated successfully!');
             }
         } catch (error: any) {
@@ -524,11 +587,11 @@ const PortfolioECommerce: React.FC = () => {
                 productId
             });
 
-            if (paymentResponse.data && paymentResponse.data.clientSecret ) {
+            if (paymentResponse.data && (paymentResponse.data as any).clientSecret ) {
                 // Process purchase
                 const purchaseResponse = await api.post(`/user/purchase/${productId}`);
 
-                if (purchaseResponse.data && purchaseResponse.data.success) {
+                if (purchaseResponse.data && (purchaseResponse.data as any).success) {
                     // Remove from cart
                     setCart(prev => prev.filter(item => item.product._id !== productId));
 

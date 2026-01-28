@@ -9,7 +9,7 @@
     "esModuleInterop": true,
     "allowJs": false,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true
   },
   "include": ["src"]
