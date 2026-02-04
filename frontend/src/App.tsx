@@ -829,8 +829,6 @@ const PortfolioECommerce: React.FC = () => {
                                     <input
                                         ref={emailRef}
                                         type="email"
-                                        value={pendingEmail}
-                                        onChange={(e) => setPendingEmail(e.target.value)}
                                         className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
                                         placeholder="you@example.com"
                                         required
@@ -890,8 +888,8 @@ const PortfolioECommerce: React.FC = () => {
                                             ref={emailRef}
                                             type="email"
                                             value={pendingEmail}
-                                            onChange={(e) => setPendingEmail(e.target.value)}
-                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
+                                            readOnly
+                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition opacity-80 cursor-not-allowed"
                                             placeholder="you@example.com"
                                             required
                                         />
