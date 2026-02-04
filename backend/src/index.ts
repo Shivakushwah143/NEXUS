@@ -238,30 +238,11 @@ app.post("/api/v1/admin/signin", async (req: Request, res: Response) => {
 });
 
 // User routes
-app.post("/api/v1/user/signup", async (req: Request, res: Response) => {
-  const { username, password ,email} = req.body;
-  console.log(username, password,email)
-  try {
-    const hashPassword = await bcrypt.hash(password, 8);
-    const user = await User.create({
-      username,
-      password: hashPassword,
-      email
-    });
-    console.log("username")
-    const token = jwt.sign(
-      {
-        userId: user._id,
-      },
-      SECRET,
-      { expiresIn: "1h" }
-    );
-    res
-      .status(200)
-      .json({ message: "user register succesfully", token, success: true });
-  } catch (error) {
-    res.status(500).json({ message: "internel server error beause you not get this " });
-  }
+app.post("/api/v1/user/signup", async (_req: Request, res: Response) => {
+  res.status(403).json({
+    success: false,
+    message: "OTP signup required. Use /api/v1/auth/send-otp and /api/v1/auth/verify-signup",
+  });
 });
 
 app.post("/api/v1/user/signin", async (req: Request, res: Response) => {
@@ -508,10 +489,25 @@ app.post("/api/v1/auth/verify-signup", async (req: Request, res: Response) => {
   const { username, password, email, otp } = req.body;
 
   try {
-    const user = await User.findOne({ email }) as any;
+    const user = (await User.findOne({ email })) as any;
 
-    if (!user || user.otp !== otp || isOTPExpired(user.otpExpiry)) {
-      res.status(400).json({ message: "Invalid or expired OTP" });
+    if (!user || !user.otp || !user.otpExpiry) {
+      res.status(400).json({ message: "No OTP request found" });
+      return;
+    }
+
+    if (user.verified) {
+      res.status(400).json({ message: "Account already verified" });
+      return;
+    }
+
+    if (isOTPExpired(user.otpExpiry)) {
+      res.status(400).json({ message: "OTP expired. Request new one" });
+      return;
+    }
+
+    if (user.otp !== otp) {
+      res.status(400).json({ message: "Invalid OTP" });
       return;
     }
 

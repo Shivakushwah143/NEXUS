@@ -170,6 +170,8 @@ const PortfolioECommerce: React.FC = () => {
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [isProductFormOpen, setIsProductFormOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [pendingEmail, setPendingEmail] = useState('');
+    const [isResendingOtp, setIsResendingOtp] = useState(false);
     const [categories] = useState(['Electronics', 'Clothing', 'Books', 'Home', 'Sports', 'Beauty']);
     const [stats, setStats] = useState({
         totalProducts: 0,
@@ -343,20 +345,19 @@ const PortfolioECommerce: React.FC = () => {
         setSuccess('');
 
         try {
-            const username = usernameRef.current?.value?.trim() || '';
-            const email = emailRef.current?.value?.trim() || '';
-            const password = passwordRef.current?.value || '';
-
-            if (!username || !email || !password) {
-                throw new Error('All fields are required');
-            }
-
-            if (password.length < 6) {
-                throw new Error('Password must be at least 6 characters');
-            }
-
             if (authMode === 'otp') {
+                const username = usernameRef.current?.value?.trim() || '';
+                const email = pendingEmail.trim() || emailRef.current?.value?.trim() || '';
+                const password = passwordRef.current?.value || '';
                 const otp = otpRef.current?.value?.trim() || '';
+
+                if (!username || !email || !password || !otp) {
+                    throw new Error('All fields are required');
+                }
+
+                if (password.length < 6) {
+                    throw new Error('Password must be at least 6 characters');
+                }
 
                 if (!otp || otp.length !== 6) {
                     throw new Error('Please enter a valid 6-digit OTP');
@@ -377,19 +378,61 @@ const PortfolioECommerce: React.FC = () => {
                     setSuccess('Account created successfully!');
                 }
             } else {
+                const email = pendingEmail.trim() || emailRef.current?.value?.trim() || '';
+
+                if (!email) {
+                    throw new Error('Email is required');
+                }
+
                 // First send OTP
                 const otpResponse = await api.post('/auth/send-otp', { email });
 
                 if (otpResponse.data && (otpResponse.data as any).success) {
+                    setPendingEmail(email);
                     setAuthMode('otp');
                     setSuccess('OTP sent to your email! Please check and enter the code.');
                 }
             }
         } catch (error: any) {
             console.error('Signup error:', error);
-            setError(error.response?.data?.message || error.message || 'Signup failed');
+            const message =
+                error.response?.data?.message ||
+                error.message ||
+                'Signup failed';
+            if (message === 'Account already verified') {
+                setError('This email is already verified. Please sign in instead.');
+            } else {
+                setError(message);
+            }
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        const email = pendingEmail.trim() || emailRef.current?.value?.trim() || '';
+
+        if (!email) {
+            setError('Email is required to resend OTP');
+            return;
+        }
+
+        try {
+            setIsResendingOtp(true);
+            setError('');
+            setSuccess('');
+
+            const otpResponse = await api.post('/auth/send-otp', { email });
+
+            if (otpResponse.data && (otpResponse.data as any).success) {
+                setPendingEmail(email);
+                setSuccess('OTP resent to your email!');
+            }
+        } catch (error: any) {
+            console.error('Resend OTP error:', error);
+            setError(error.response?.data?.message || 'Failed to resend OTP');
+        } finally {
+            setIsResendingOtp(false);
         }
     };
 
@@ -666,6 +709,7 @@ const PortfolioECommerce: React.FC = () => {
         if (emailRef.current) emailRef.current.value = '';
         if (passwordRef.current) passwordRef.current.value = '';
         if (otpRef.current) otpRef.current.value = '';
+        setPendingEmail('');
         setError('');
         setSuccess('');
     };
@@ -777,34 +821,24 @@ const PortfolioECommerce: React.FC = () => {
                         )}
 
                         <form onSubmit={authMode === 'login' ? handleLogin : handleSignup} className="space-y-4">
-                            {authMode !== 'login' && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-1">
-                                            Username
-                                        </label>
-                                        <input
-                                            ref={usernameRef}
-                                            type="text"
-                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                                            placeholder="Enter your username"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-1">
-                                            Email
-                                        </label>
-                                        <input
-                                            ref={emailRef}
-                                            type="email"
-                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
-                                            placeholder="you@example.com"
-                                            required
-                                        />
-                                    </div>
-                                </>
+                            {authMode === 'register' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                                        Email
+                                    </label>
+                                    <input
+                                        ref={emailRef}
+                                        type="email"
+                                        value={pendingEmail}
+                                        onChange={(e) => setPendingEmail(e.target.value)}
+                                        className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
+                                        placeholder="you@example.com"
+                                        required
+                                    />
+                                    <p className="text-sm text-gray-400 mt-2">
+                                        We will send a 6-digit code. OTP expires in 5 minutes.
+                                    </p>
+                                </div>
                             )}
 
                             {authMode === 'login' && (
@@ -822,7 +856,7 @@ const PortfolioECommerce: React.FC = () => {
                                 </div>
                             )}
 
-                            {authMode !== 'otp' && (
+                            {authMode !== 'otp' && authMode !== 'register' && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-1">
                                         Password
@@ -847,22 +881,84 @@ const PortfolioECommerce: React.FC = () => {
                             )}
 
                             {authMode === 'otp' && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                                        Verification Code
-                                    </label>
-                                    <input
-                                        ref={otpRef}
-                                        type="text"
-                                        className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-center text-2xl tracking-widest"
-                                        placeholder="000000"
-                                        maxLength={6}
-                                        required
-                                    />
-                                    <p className="text-sm text-gray-400 mt-2 text-center">
-                                        Enter the 6-digit code sent to your email
-                                    </p>
-                                </div>
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                                            Email
+                                        </label>
+                                        <input
+                                            ref={emailRef}
+                                            type="email"
+                                            value={pendingEmail}
+                                            onChange={(e) => setPendingEmail(e.target.value)}
+                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
+                                            placeholder="you@example.com"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                                            Username
+                                        </label>
+                                        <input
+                                            ref={usernameRef}
+                                            type="text"
+                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
+                                            placeholder="Enter your username"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                                            Password
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                ref={passwordRef}
+                                                type={showPassword ? "text" : "password"}
+                                                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition pr-12"
+                                                placeholder="Create a password"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                                            >
+                                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                                            Verification Code
+                                        </label>
+                                        <input
+                                            ref={otpRef}
+                                            type="text"
+                                            className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 text-center text-2xl tracking-widest"
+                                            placeholder="000000"
+                                            maxLength={6}
+                                            required
+                                        />
+                                        <p className="text-sm text-gray-400 mt-2 text-center">
+                                            Enter the 6-digit code sent to your email
+                                        </p>
+                                        <div className="mt-4 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={handleResendOtp}
+                                                disabled={isResendingOtp || isLoading}
+                                                className="text-sm text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isResendingOtp ? 'Resending OTP...' : 'Resend OTP'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
                             <button
@@ -882,7 +978,11 @@ const PortfolioECommerce: React.FC = () => {
                                 }}
                                 className="text-gray-400 hover:text-white transition-colors"
                             >
-                                {authMode === 'login' ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                                {authMode === 'login'
+                                    ? "Don't have an account? Sign up"
+                                    : authMode === 'otp'
+                                        ? "Back to sign in"
+                                        : "Already have an account? Sign in"}
                             </button>
                         </div>
 
