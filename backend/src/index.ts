@@ -16,7 +16,6 @@ import { sendOTPEmail } from "./utils/mailer";
 
 
 const app = Express();
-app.use(Express.json());
 dotenv.config();
 
 const port =  process.env.PORT || 5000;
@@ -52,6 +51,63 @@ app.use(
     credentials: true,
   })
 );
+
+// Stripe webhook (must use raw body)
+app.post(
+  "/api/v1/stripe/webhook",
+  Express.raw({ type: "application/json" }),
+  async (req: Request, res: Response) => {
+    const signature = req.headers["stripe-signature"];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!signature || !webhookSecret) {
+      res.status(400).json({ message: "Missing Stripe webhook configuration" });
+      return;
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        webhookSecret
+      );
+    } catch (err) {
+      console.error("Stripe webhook signature error:", err);
+      res.status(400).json({ message: "Invalid Stripe signature" });
+      return;
+    }
+
+    if (event.type === "payment_intent.succeeded") {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+      const productId = paymentIntent.metadata?.productId;
+      const userId = paymentIntent.metadata?.userId;
+
+      if (!productId || !userId) {
+        console.error("Missing metadata on payment intent");
+        res.status(400).json({ message: "Missing payment metadata" });
+        return;
+      }
+
+      try {
+        await User.findByIdAndUpdate(
+          userId,
+          { $addToSet: { purchaseProduct: productId } },
+          { new: false }
+        );
+      } catch (error) {
+        console.error("Webhook purchase update error:", error);
+        res.status(500).json({ message: "Failed to record purchase" });
+        return;
+      }
+    }
+
+    res.status(200).json({ received: true });
+  }
+);
+
+// JSON parser for all other routes
+app.use(Express.json());
 
 // Authentication middleware
 const authenticateUser = (req: Request, res: Response, next: NextFunction) => {
@@ -153,35 +209,11 @@ app.post(
   "/api/v1/user/purchase/:productId",
   authenticateUser,
   async (req: Request, res: Response) => {
-    const { productId } = req.params;
-    const userId = req.user?.userID;
-
-    if (!userId) {
-      res.status(401).json({ message: "User not authenticated" });
-      return;
-    }
-
-    try {
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { $addToSet: { purchaseProduct: productId } },
-        { new: true }
-      ).populate("purchaseProduct");
-
-      if (!user) {
-        res.status(404).json({ message: "User not found" });
-        return;
-      }
-
-      res.status(200).json({
-        success: true,
-        message: "Product purchased successfully",
-        products: user.purchaseProduct,
-      });
-    } catch (error) {
-      console.error("Purchase error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
+    res.status(403).json({
+      success: false,
+      message:
+        "Direct purchase is disabled. Purchases are recorded after Stripe payment succeeds.",
+    });
   }
 );
 

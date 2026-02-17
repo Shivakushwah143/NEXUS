@@ -220,6 +220,12 @@ const PortfolioECommerce: React.FC = () => {
         }
     }, [user, isAdmin]);
 
+    useEffect(() => {
+        if (activeTab === 'product') {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+    }, [activeTab, selectedProduct]);
+
 
     
 
