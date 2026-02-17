@@ -4,6 +4,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import {
     ShoppingBag, User, Search, Menu, X,
     Star, ShoppingCart, LogOut, Package,
@@ -22,6 +24,7 @@ import {
 
 // ==================== API CONFIG ====================
 const API_BASE_URL = 'https://nexus-backend-meok.onrender.com/api/v1';
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 // Create axios instance
 const api = axios.create({
@@ -49,7 +52,7 @@ api.interceptors.response.use(
     (error) => {
         console.error('Response error:', error);
 
-        if (error.response?.status === 401 || error.response?.status === 403) {
+        if (error.response?.status === 401) {
             try {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
@@ -134,6 +137,10 @@ const PortfolioECommerce: React.FC = () => {
     const otpRef = useRef<HTMLInputElement>(null);
     const avatarRef = useRef<HTMLInputElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
+    const checkoutNameRef = useRef<HTMLInputElement>(null);
+    const checkoutAddressRef = useRef<HTMLInputElement>(null);
+    const checkoutCityRef = useRef<HTMLInputElement>(null);
+    const checkoutZipRef = useRef<HTMLInputElement>(null);
 
     // Admin form refs
     const adminUsernameRef = useRef<HTMLInputElement>(null);
@@ -158,6 +165,8 @@ const PortfolioECommerce: React.FC = () => {
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+    const [checkoutClientSecret, setCheckoutClientSecret] = useState('');
+    const [isCheckoutIntentLoading, setIsCheckoutIntentLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'home' | 'shop' | 'about' | 'contact' | 'dashboard' | 'product' | 'admin'>('home');
     const [authMode, setAuthMode] = useState<'login' | 'register' | 'otp'>('login');
     const [showPassword, setShowPassword] = useState(false);
@@ -178,13 +187,6 @@ const PortfolioECommerce: React.FC = () => {
         totalUsers: 0,
         totalSales: 0,
         totalOrders: 0,
-    });
-    const [checkoutData, setCheckoutData] = useState({
-        name: '',
-        address: '',
-        city: '',
-        zipCode: '',
-        paymentMethod: 'credit_card',
     });
 
     // ==================== EFFECTS ====================
@@ -225,6 +227,45 @@ const PortfolioECommerce: React.FC = () => {
             window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
         }
     }, [activeTab, selectedProduct]);
+
+    useEffect(() => {
+        if (!isCheckoutOpen) {
+            setCheckoutClientSecret('');
+            return;
+        }
+
+        if (!user || cart.length === 0) {
+            return;
+        }
+
+        const createPaymentIntent = async () => {
+            setIsCheckoutIntentLoading(true);
+            setError('');
+
+            try {
+                const items = cart.map((item) => ({
+                    productId: item.product._id,
+                    quantity: item.quantity,
+                }));
+
+                const response = await api.post('/payment/create-payment-intent', { items });
+                const clientSecret = (response.data as any)?.clientSecret;
+
+                if (clientSecret) {
+                    setCheckoutClientSecret(clientSecret);
+                } else {
+                    setError('Failed to initialize payment');
+                }
+            } catch (error: any) {
+                console.error('Create payment intent error:', error);
+                setError(error.response?.data?.message || 'Failed to initialize payment');
+            } finally {
+                setIsCheckoutIntentLoading(false);
+            }
+        };
+
+        createPaymentIntent();
+    }, [isCheckoutOpen, cart, user]);
 
 
     
@@ -549,43 +590,21 @@ const PortfolioECommerce: React.FC = () => {
             return;
         }
 
-        setIsLoading(true);
         setError('');
         setSuccess('');
 
         try {
-            // Create payment intent first
-            const paymentResponse = await api.post('/payment/create-payment-intent', {
-                productId
-            });
-
-            if (paymentResponse.data && (paymentResponse.data as any).clientSecret ) {
-                // Process purchase
-                const purchaseResponse = await api.post(`/user/purchase/${productId}`);
-
-                if (purchaseResponse.data && (purchaseResponse.data as any).success) {
-                    // Remove from cart
-                    setCart(prev => prev.filter(item => item.product._id !== productId));
-
-                    // Refresh purchased products
-                    await fetchPurchasedProducts();
-
-                    // Update stats
-                    setStats(prev => ({
-                        ...prev,
-                        totalSales: prev.totalSales + (products.find(p => p._id === productId)?.price || 0),
-                        totalOrders: prev.totalOrders + 1
-                    }));
-
-                    setSuccess('Purchase successful! Payment processed.');
-                    setIsCheckoutOpen(false);
-                }
+            const product = products.find(p => p._id === productId);
+            if (!product) {
+                setError('Product not found');
+                return;
             }
+
+            setCart([{ product, quantity: 1 }]);
+            setIsCheckoutOpen(true);
         } catch (error: any) {
             console.error('Purchase error:', error);
             setError(error.response?.data?.message || 'Purchase failed. Please try again.');
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -658,37 +677,6 @@ const PortfolioECommerce: React.FC = () => {
         } catch (error: any) {
             console.error('Delete error:', error);
             setError(error.response?.data?.message || 'Failed to delete product');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleCheckout = async () => {
-        if (cart.length === 0) {
-            setError('Your cart is empty');
-            return;
-        }
-
-        if (!user) {
-            setIsAuthModalOpen(true);
-            setError('Please login to checkout');
-            return;
-        }
-
-        setIsLoading(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            // Process each product in cart
-            for (const item of cart) {
-                await handlePurchase(item.product._id);
-            }
-
-            setCart([]);
-        } catch (error: any) {
-            console.error('Checkout error:', error);
-            setError('Checkout failed. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -1214,6 +1202,88 @@ const PortfolioECommerce: React.FC = () => {
         </AnimatePresence>
     );
 
+    const CheckoutForm = () => {
+        const stripe = useStripe();
+        const elements = useElements();
+        const [isSubmitting, setIsSubmitting] = useState(false);
+
+        const handleSubmit = async (e: React.FormEvent) => {
+            e.preventDefault();
+
+            if (!stripe || !elements) {
+                return;
+            }
+
+            const name = checkoutNameRef.current?.value?.trim() || '';
+            const address = checkoutAddressRef.current?.value?.trim() || '';
+            const city = checkoutCityRef.current?.value?.trim() || '';
+            const zipCode = checkoutZipRef.current?.value?.trim() || '';
+
+            if (!name || !address || !city || !zipCode) {
+                setError('Please fill in all checkout fields');
+                return;
+            }
+
+            setIsSubmitting(true);
+            setError('');
+            setSuccess('');
+
+            const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    payment_method_data: {
+                        billing_details: {
+                            name,
+                            address: {
+                                line1: address,
+                                city,
+                                postal_code: zipCode,
+                            },
+                        },
+                    },
+                },
+                redirect: 'if_required',
+            });
+
+            if (stripeError) {
+                setError(stripeError.message || 'Payment failed');
+                setIsSubmitting(false);
+                return;
+            }
+
+            if (paymentIntent?.status === 'succeeded') {
+                const orderTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+                setStats(prev => ({
+                    ...prev,
+                    totalSales: prev.totalSales + orderTotal,
+                    totalOrders: prev.totalOrders + 1
+                }));
+
+                setSuccess('Payment successful!');
+                setCart([]);
+                setIsCheckoutOpen(false);
+                await fetchPurchasedProducts();
+            } else {
+                setSuccess('Payment processing. Please wait for confirmation.');
+            }
+
+            setIsSubmitting(false);
+        };
+
+        return (
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <PaymentElement />
+                <button
+                    type="submit"
+                    disabled={!stripe || isSubmitting || isCheckoutIntentLoading}
+                    className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {isSubmitting ? 'Processing Payment...' : `Pay $${(cartTotal + 9.99).toFixed(2)}`}
+                </button>
+            </form>
+        );
+    };
+
     const CheckoutModal = () => (
         <AnimatePresence>
             {isCheckoutOpen && (
@@ -1259,8 +1329,7 @@ const PortfolioECommerce: React.FC = () => {
                                     </label>
                                     <input
                                         type="text"
-                                        value={checkoutData.name}
-                                        onChange={e => setCheckoutData({ ...checkoutData, name: e.target.value })}
+                                        ref={checkoutNameRef}
                                         className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white"
                                         placeholder="John Doe"
                                         required
@@ -1272,8 +1341,7 @@ const PortfolioECommerce: React.FC = () => {
                                     </label>
                                     <input
                                         type="text"
-                                        value={checkoutData.address}
-                                        onChange={e => setCheckoutData({ ...checkoutData, address: e.target.value })}
+                                        ref={checkoutAddressRef}
                                         className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white"
                                         placeholder="123 Main St"
                                         required
@@ -1285,8 +1353,7 @@ const PortfolioECommerce: React.FC = () => {
                                     </label>
                                     <input
                                         type="text"
-                                        value={checkoutData.city}
-                                        onChange={e => setCheckoutData({ ...checkoutData, city: e.target.value })}
+                                        ref={checkoutCityRef}
                                         className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white"
                                         placeholder="New York"
                                         required
@@ -1298,36 +1365,11 @@ const PortfolioECommerce: React.FC = () => {
                                     </label>
                                     <input
                                         type="text"
-                                        value={checkoutData.zipCode}
-                                        onChange={e => setCheckoutData({ ...checkoutData, zipCode: e.target.value })}
+                                        ref={checkoutZipRef}
                                         className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white"
                                         placeholder="10001"
                                         required
                                     />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-3">
-                                    Payment Method
-                                </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {['credit_card', 'paypal', 'stripe', 'bank_transfer'].map((method) => (
-                                        <label key={method} className={`flex items-center justify-center p-4 rounded-xl border cursor-pointer ${checkoutData.paymentMethod === method
-                                            ? 'border-purple-500 bg-purple-500/10'
-                                            : 'border-gray-700 hover:border-gray-600'
-                                            }`}>
-                                            <input
-                                                type="radio"
-                                                name="paymentMethod"
-                                                value={method}
-                                                checked={checkoutData.paymentMethod === method}
-                                                onChange={e => setCheckoutData({ ...checkoutData, paymentMethod: e.target.value })}
-                                                className="hidden"
-                                            />
-                                            <span className="text-sm capitalize">{method.replace('_', ' ')}</span>
-                                        </label>
-                                    ))}
                                 </div>
                             </div>
 
@@ -1351,13 +1393,18 @@ const PortfolioECommerce: React.FC = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleCheckout}
-                                disabled={isLoading || cart.length === 0}
-                                className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isLoading ? 'Processing Payment...' : `Pay $${(cartTotal + 9.99).toFixed(2)}`}
-                            </button>
+                            {isCheckoutIntentLoading && (
+                                <div className="text-sm text-gray-400">Initializing payment...</div>
+                            )}
+
+                            {!isCheckoutIntentLoading && checkoutClientSecret && (
+                                <Elements
+                                    stripe={stripePromise}
+                                    options={{ clientSecret: checkoutClientSecret, appearance: { theme: 'night' } }}
+                                >
+                                    <CheckoutForm />
+                                </Elements>
+                            )}
                         </div>
                     </motion.div>
                 </motion.div>

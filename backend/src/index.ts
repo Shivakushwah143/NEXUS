@@ -23,7 +23,7 @@ const SECRET = process.env.SECRET || "fallback_secret";
 
 // Initialize Stripe
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-07-30.basil" as const,
+  apiVersion: "2023-10-16",
   typescript: true,
 });
 interface JwtPayload {
@@ -80,10 +80,15 @@ app.post(
 
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const productId = paymentIntent.metadata?.productId;
+      const productIds = paymentIntent.metadata?.productIds
+        ? paymentIntent.metadata.productIds
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean)
+        : [];
       const userId = paymentIntent.metadata?.userId;
 
-      if (!productId || !userId) {
+      if (productIds.length === 0 || !userId) {
         console.error("Missing metadata on payment intent");
         res.status(400).json({ message: "Missing payment metadata" });
         return;
@@ -92,7 +97,7 @@ app.post(
       try {
         await User.findByIdAndUpdate(
           userId,
-          { $addToSet: { purchaseProduct: productId } },
+          { $addToSet: { purchaseProduct: { $each: productIds } } },
           { new: false }
         );
       } catch (error) {
@@ -156,7 +161,10 @@ app.post(
   "/api/v1/payment/create-payment-intent",
   authenticateUser,
   async (req: Request, res: Response) => {
-    const { productId } = req.body;
+    const { productId, items } = req.body as {
+      productId?: string;
+      items?: { productId: string; quantity: number }[];
+    };
     const userId = req.user?.userID;
 
     if (!userId) {
@@ -165,38 +173,70 @@ app.post(
     }
 
     try {
-      // Get product with proper typing
-      const product = await Product.findById(productId).lean();
-      console.log("success");
-      if (!product || typeof product.price !== "number") {
-        res.status(404).json({ message: "Product not found or invalid price" });
+      let lineItems: { productId: string; quantity: number }[] = [];
+
+      if (Array.isArray(items) && items.length > 0) {
+        lineItems = items
+          .filter((item) => item?.productId && item?.quantity > 0)
+          .map((item) => ({
+            productId: item.productId,
+            quantity: Math.floor(item.quantity),
+          }));
+      } else if (productId) {
+        lineItems = [{ productId, quantity: 1 }];
+      }
+
+      if (lineItems.length === 0) {
+        res.status(400).json({ message: "No valid items provided" });
         return;
       }
 
-      // Validate price
-      const amount = Math.round(product.price * 100);
-      if (isNaN(amount)) {
-        res.status(400).json({ message: "Invalid product price" });
+      const productIds = lineItems.map((item) => item.productId);
+      const products = await Product.find({ _id: { $in: productIds } }).lean();
+
+      if (!products || products.length === 0) {
+        res.status(404).json({ message: "Products not found" });
         return;
       }
-      console.log("success");
+
+      const priceMap = new Map<string, number>();
+      for (const product of products) {
+        if (product && typeof product.price === "number") {
+          priceMap.set(product._id.toString(), product.price);
+        }
+      }
+
+      let total = 0;
+      for (const item of lineItems) {
+        const price = priceMap.get(item.productId);
+        if (typeof price !== "number") {
+          res.status(400).json({ message: "Invalid product price" });
+          return;
+        }
+        total += price * item.quantity;
+      }
+
+      const amount = Math.round(total * 100);
+      if (!amount || amount <= 0 || isNaN(amount)) {
+        res.status(400).json({ message: "Invalid total amount" });
+        return;
+      }
 
       // Create payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "usd",
         metadata: {
-          productId: product._id.toString(),
+          productIds: productIds.join(","),
+          quantities: lineItems.map((item) => item.quantity).join(","),
           userId: userId,
         },
       });
 
-      console.log("control reched here");
       res.status(200).json({
         clientSecret: paymentIntent.client_secret,
         message: "got success",
       });
-      console.log("success");
     } catch (error) {
       console.error("Payment intent error:", error);
       res.status(500).json({ message: "Failed to create payment intent" });
