@@ -23,7 +23,7 @@ const SECRET = process.env.SECRET || "fallback_secret";
 
 // Initialize Stripe
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-07-30.basil",
   typescript: true,
 });
 interface JwtPayload {
@@ -53,10 +53,7 @@ app.use(
 );
 
 // Stripe webhook (must use raw body)
-app.post(
-  "/api/v1/stripe/webhook",
-  Express.raw({ type: "application/json" }),
-  async (req: Request, res: Response) => {
+const stripeWebhookHandler = async (req: Request, res: Response) => {
     const signature = req.headers["stripe-signature"];
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -108,7 +105,12 @@ app.post(
     }
 
     res.status(200).json({ received: true });
-  }
+  };
+
+app.post(
+  "/api/v1/stripe/webhook",
+  Express.raw({ type: "application/json" }),
+  stripeWebhookHandler
 );
 
 // JSON parser for all other routes
