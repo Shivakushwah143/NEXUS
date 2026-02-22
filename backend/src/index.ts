@@ -47,7 +47,7 @@ declare global {
 // CORS configuration
 app.use(
   cors({
-    origin: "https://nexus-777v.vercel.app",
+    origin: true, // reflect request origin (allow all)
     credentials: true,
   })
 );
