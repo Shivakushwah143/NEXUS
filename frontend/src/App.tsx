@@ -1291,14 +1291,14 @@ const PortfolioECommerce: React.FC = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xl"
+                    className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xl overflow-y-auto"
                     onClick={() => setIsCheckoutOpen(false)}
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="relative w-full max-w-2xl bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-3xl p-8 shadow-2xl"
+                        className="relative w-full max-w-2xl bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto min-w-0"
                         onClick={e => e.stopPropagation()}
                     >
                         <button
