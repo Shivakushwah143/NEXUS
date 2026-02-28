@@ -1228,7 +1228,7 @@ const PortfolioECommerce: React.FC = () => {
             setError('');
             setSuccess('');
 
-            const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
+            const result = await stripe.confirmPayment({
                 elements,
                 confirmParams: {
                     payment_method_data: {
@@ -1245,13 +1245,13 @@ const PortfolioECommerce: React.FC = () => {
                 redirect: 'if_required',
             });
 
-            if (stripeError) {
-                setError(stripeError.message || 'Payment failed');
+            if (result.error) {
+                setError(result.error.message || 'Payment failed');
                 setIsSubmitting(false);
                 return;
             }
 
-            if (paymentIntent?.status === 'succeeded') {
+            if (result.paymentIntent?.status === 'succeeded') {
                 const orderTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
                 setStats(prev => ({
                     ...prev,
