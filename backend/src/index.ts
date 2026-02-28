@@ -13,10 +13,12 @@ import cors from "cors";
 import Stripe from "stripe";
 import { generateOTP, isOTPExpired } from "./utils/otp";
 import { sendOTPEmail } from "./utils/mailer";
+import dns from "dns";
 
 
 const app = Express();
 dotenv.config();
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const port =  process.env.PORT || 5000;
 const SECRET = process.env.SECRET || "fallback_secret";
@@ -539,21 +541,33 @@ app.post("/api/v1/auth/send-otp", async (req: Request, res: Response) => {
   return}
 
   try {
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser?.verified) {
+      res.status(400).json({ message: "Account already exists. Please sign in." });
+      return;
+    }
+
     const otp = generateOTP();
     console.log(otp)
     const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
     
     // Store just the OTP data (no username/password yet)
     await User.findOneAndUpdate(
-      { email },
-      { email, otp, otpExpiry },
+      { email: normalizedEmail },
+      { email: normalizedEmail, otp, otpExpiry },
       { upsert: true }
     );
     
-    await sendOTPEmail(email, otp);
+    await sendOTPEmail(normalizedEmail, otp);
     res.json({ success: true, message: "OTP sent to email" });
   } catch (error) {
     console.error("OTP send error:", error);
+    const err = error as any;
+    if (err?.response?.body) {
+      console.error("OTP provider response body:", JSON.stringify(err.response.body));
+    }
     res.status(500).json({ message: "Failed to send OTP direct here" });
   }
 });
@@ -563,7 +577,18 @@ app.post("/api/v1/auth/verify-signup", async (req: Request, res: Response) => {
   const { username, password, email, otp } = req.body;
 
   try {
-    const user = (await User.findOne({ email })) as any;
+    if (!username || !password || !email || !otp) {
+      res.status(400).json({ message: "All fields are required" });
+      return;
+    }
+
+    if (String(password).length < 6) {
+      res.status(400).json({ message: "Password must be at least 6 characters" });
+      return;
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = (await User.findOne({ email: normalizedEmail })) as any;
 
     if (!user || !user.otp || !user.otpExpiry) {
       res.status(400).json({ message: "No OTP request found" });

@@ -1,8 +1,14 @@
 
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+const sendGridKey = process.env.SENDGRID_API_KEY || '';
+if (sendGridKey) {
+  sgMail.setApiKey(sendGridKey);
+}
 
 const transporter = nodemailer.createTransport({
   service: 'Gmail',
@@ -67,26 +73,48 @@ export const sendOTPEmail = async (email: string, otp: string) => {
   </html>
   `;
 
-  const mailOptions = {
-    from: `"Elegant Era" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: ' Your Verification Code',
-    text: `Your verification code is: ${otp}\nThis code expires in 5 minutes.`,
-    html: emailHtml,
-    alternatives: [
-      {
-        contentType: 'text/html',
-        content: emailHtml
-      }
-    ]
-  };
-
   try {
-    const info = await transporter.sendMail(mailOptions);
+    const from =
+      process.env.SENDGRID_FROM ||
+      process.env.EMAIL_USER;
+
+    if (!from) {
+      throw new Error('Missing sender email. Set SENDGRID_FROM or EMAIL_USER.');
+    }
+
+    if (sendGridKey) {
+      await sgMail.send({
+        to: email,
+        from,
+        subject: 'Your Verification Code',
+        text: `Your verification code is: ${otp}\nThis code expires in 5 minutes.`,
+        html: emailHtml
+      });
+      console.log('SendGrid email sent');
+      return true;
+    }
+
+    const info = await transporter.sendMail({
+      from: `"Elegant Era" <${from}>`,
+      to: email,
+      subject: 'Your Verification Code',
+      text: `Your verification code is: ${otp}\nThis code expires in 5 minutes.`,
+      html: emailHtml,
+      alternatives: [
+        {
+          contentType: 'text/html',
+          content: emailHtml
+        }
+      ]
+    });
     console.log('Email sent:', info.messageId);
     return true;
   } catch (error) {
-    console.error('Email send error:', error);
+    const err = error as any;
+    console.error('Email send error:', err?.message || err);
+    if (err?.response?.body) {
+      console.error('Email provider response body:', JSON.stringify(err.response.body));
+    }
     throw error;
   }
 };

@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 
 // ==================== API CONFIG ====================
-const API_BASE_URL = 'https://nexus-backend-meok.onrender.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nexus-backend-meok.onrender.com/api/v1';
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ;
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 // Create axios instance
@@ -172,6 +173,7 @@ const PortfolioECommerce: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isAuthLoading, setIsAuthLoading] = useState(false);
     const [error, setError] = useState<string>('');
     const [success, setSuccess] = useState<string>('');
     const [quantity, setQuantity] = useState(1);
@@ -387,7 +389,7 @@ const PortfolioECommerce: React.FC = () => {
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
+        setIsAuthLoading(true);
         setError('');
         setSuccess('');
 
@@ -452,7 +454,7 @@ const PortfolioECommerce: React.FC = () => {
                 setError(message);
             }
         } finally {
-            setIsLoading(false);
+            setIsAuthLoading(false);
         }
     };
 
@@ -485,7 +487,7 @@ const PortfolioECommerce: React.FC = () => {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
+        setIsAuthLoading(true);
         setError('');
         setSuccess('');
 
@@ -513,7 +515,7 @@ const PortfolioECommerce: React.FC = () => {
             console.error('Login error:', error);
             setError(error.response?.data?.message || 'Invalid username or password');
         } finally {
-            setIsLoading(false);
+            setIsAuthLoading(false);
         }
     };
 
@@ -955,10 +957,10 @@ const PortfolioECommerce: React.FC = () => {
 
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={isAuthLoading}
                                 className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {isLoading ? 'Processing...' : authMode === 'login' ? 'Sign In' : authMode === 'otp' ? 'Verify & Sign Up' : 'Send OTP'}
+                                {isAuthLoading ? 'Processing...' : authMode === 'login' ? 'Sign In' : authMode === 'otp' ? 'Verify & Sign Up' : 'Send OTP'}
                             </button>
                         </form>
 
@@ -1207,8 +1209,9 @@ const PortfolioECommerce: React.FC = () => {
         const elements = useElements();
         const [isSubmitting, setIsSubmitting] = useState(false);
 
-        const handleSubmit = async (e: React.FormEvent) => {
-            e.preventDefault();
+        const handleSubmit = async (e?: React.FormEvent) => {
+            e?.preventDefault();
+            e?.stopPropagation();
 
             if (!stripe || !elements) {
                 return;
@@ -1241,6 +1244,7 @@ const PortfolioECommerce: React.FC = () => {
                             },
                         },
                     },
+                    return_url: window.location.href,
                 },
                 redirect: 'if_required',
             });
@@ -1271,10 +1275,11 @@ const PortfolioECommerce: React.FC = () => {
         };
 
         return (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                 <PaymentElement />
                 <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSubmit}
                     disabled={!stripe || isSubmitting || isCheckoutIntentLoading}
                     className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
