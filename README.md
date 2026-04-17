@@ -23,6 +23,8 @@ npm install
 npm run dev
 Server runs on http://localhost:5000
 
+done 
+
 Frontend Setup
 bash
 npm install
